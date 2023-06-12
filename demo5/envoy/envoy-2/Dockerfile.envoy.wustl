@@ -1,0 +1,5 @@
+FROM envoyproxy/envoy:dev
+
+CMD ["/usr/local/bin/envoy", \
+     "-c", "/etc/envoy_wustl.yaml", \
+     "-l", "debug"]

@@ -1,0 +1,50 @@
+services:
+
+  envoy-1:
+    build:
+      context: ./envoy/envoy-1
+      dockerfile: Dockerfile.envoy.google
+    volumes:
+      - ./envoy/envoy-1/envoy_google.yaml:/etc/envoy_google.yaml
+    networks:
+      - envoymesh
+    expose:
+      - "9001"
+      - "10001"
+    ports:
+      - "9001:9001"
+      - "10001:18000"
+
+  envoy-2:
+    build:
+      context: ./envoy/envoy-2
+      dockerfile: Dockerfile.envoy.wustl
+    volumes:
+      - ./envoy/envoy-2/envoy_wustl.yaml:/etc/envoy_wustl.yaml
+    networks:
+      - envoymesh
+    expose:
+      - "9002"
+      - "10002"
+    ports:
+      - "9002:9002"
+      - "10002:18000"
+  
+  xds:
+    container_name: xds
+    image: xds:v1
+    # entrypoint: /bin/sh
+    stdin_open: true 
+    tty: true
+    build:
+      context: ./xds
+      dockerfile: Dockerfile.xds
+    networks:
+      - envoymesh
+    expose:
+      - "10000"
+    ports:
+      - "10000:18000"
+
+networks:
+  envoymesh: {}

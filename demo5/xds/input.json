@@ -1,0 +1,24 @@
+{
+  "input": [
+    {
+      "upstreamHost": "www.google.com",
+      "listenerPort": 10001,
+      "clusterName": "service_google"
+    },
+    {
+      "upstreamHost": "engineering.wustl.edu",
+      "listenerPort": 10002,
+      "clusterName": "service_wustl"
+    },
+    {
+      "upstreamHost": "www.yahoo.com",
+      "listenerPort": 10003,
+      "clusterName": "service_yahoo"
+    },
+    {
+      "upstreamHost": "www.bbc.com",
+      "listenerPort": 10004,
+      "clusterName": "service_bbc"
+    }
+  ]
+}
