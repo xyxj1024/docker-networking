@@ -9,3 +9,4 @@ Repo description:
 - Demo 3: [How to expose multiple containers on the same port](https://iximiuz.com/en/posts/multiple-containers-same-port-reverse-proxy/)
 - Demo 4: Auto-discover "Hello" services
 - Demo 5: Dynamically update configurations for multiple Envoy proxies
+- Demo 6: Simple DNS service for Docker Swarm
