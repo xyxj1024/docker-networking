@@ -1,5 +1,11 @@
 ## Preparation
 
+- (Required) Initialize Go module:
+
+    ```bash
+    go mod init envoy-control && go mod tidy
+    ```
+
 - (Required) Generate TLS certificates and keys:
 
     ```bash
@@ -27,34 +33,23 @@ envoy -c envoy-1/envoy_google.yaml -l debug
 cd path/to/demo/envoy
 envoy -c envoy-2/envoy_wustl.yaml -l debug
 
-# Terminal 3: Start control plane
+# Terminal 3: Start Envoy-3
+cd path/to/demo/envoy
+envoy -c envoy-3/envoy_bbc.yaml -l debug
+
+# Terminal 4: Start control plane
 cd path/to/demo/xds
 go run envoy-control
-```
 
-Upon receiving a `DiscoveryRequest`, the control plane will ask user to provide an IP address, a cluster name, and a listener's port. Try these two sets of input:
-
-```text
-[*] For test-id-google: www.google.com, service_google, 10001
-[*] For test-id-wustl: engineering.wustl.edu, service_wustl, 10002
-```
-
-And finally,
-
-```bash
-# Terminal 4: Access proxy. Replace port number 10001 with the listener's port we give
-cd path/to/demo/xds
-curl -H "Host: http.domain.com" \
-    --resolve http.domain.com:10001:127.0.0.1 \
-    --cacert certs/envoy-intermediate-ca.crt \
-    https://http.domain.com:10001/
+# Terminal 5: Access proxy. Replace port number 10001 with the listener's port we give
+curl localhost:10001
 ```
 
 ## Run with Docker Compose
 
 Make sure that the listener's address of the bootstrap configuration files for Envoy proxies is set to `xds`, the container name associated with the xDS server.
 
-First, inside the `demo` folder, run `docker compose build`. Then, `docker compose up` both `envoy-1` and `envoy-2`.
+First, inside the `demo` folder, run `docker compose build`. Then, `docker compose up` all `envoy-x`s.
 
 Run the xDS server:
 
@@ -81,3 +76,5 @@ If I uncomment the `entrypoint` line, and run `go run envoy-control` inside the 
 ### Update:
 
 The problem is solved when I change the `resource.go` program code to read from a JSON file rather than from standard input.
+
+To run the xDS server natively (rather than inside a container), change the listener's address of the bootstrap configuration files for Envoy proxies to `host.docker.internal`.

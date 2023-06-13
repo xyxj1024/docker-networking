@@ -11,14 +11,14 @@
       "clusterName": "service_wustl"
     },
     {
-      "upstreamHost": "www.yahoo.com",
+      "upstreamHost": "www.bbc.com",
       "listenerPort": 10003,
-      "clusterName": "service_yahoo"
+      "clusterName": "service_bbc"
     },
     {
-      "upstreamHost": "www.bbc.com",
+      "upstreamHost": "www.yahoo.com",
       "listenerPort": 10004,
-      "clusterName": "service_bbc"
+      "clusterName": "service_yahoo"
     }
   ]
 }

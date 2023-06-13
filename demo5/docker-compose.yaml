@@ -29,22 +29,37 @@ services:
     ports:
       - "9002:9002"
       - "10002:18000"
-  
-  xds:
-    container_name: xds
-    image: xds:v1
-    # entrypoint: /bin/sh
-    stdin_open: true 
-    tty: true
+
+  envoy-3:
     build:
-      context: ./xds
-      dockerfile: Dockerfile.xds
+      context: ./envoy/envoy-3
+      dockerfile: Dockerfile.envoy.bbc
+    volumes:
+      - ./envoy/envoy-3/envoy_bbc.yaml:/etc/envoy_bbc.yaml
     networks:
       - envoymesh
     expose:
-      - "10000"
+      - "9003"
+      - "10003"
     ports:
-      - "10000:18000"
+      - "9003:9003"
+      - "10003:18000"
+  
+  # xds:
+    # container_name: xds
+    # image: xds:v1
+    # # entrypoint: /bin/sh
+    # stdin_open: true 
+    # tty: true
+    # build:
+      # context: ./xds
+      # dockerfile: Dockerfile.xds
+    # networks:
+      # - envoymesh
+    # expose:
+      # - "10000"
+    # ports:
+      # - "10000:18000"
 
 networks:
   envoymesh: {}

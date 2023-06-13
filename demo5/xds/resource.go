@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -23,7 +21,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -32,33 +29,10 @@ import (
 
 var (
 	listenerName    = "listener_0"
-	secretName      = "server_cert"
 	virtualHostName = "local_service"
 	routeConfigName = "local_route"
+	// secretName      = "server_cert"
 )
-
-// The following two functions are taken from https://github.com/istio/istio/blob/master/pilot/pkg/util/protoconv/protoconv.go
-// messageToAnyWithError converts from proto message to proto Any
-func messageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-	return &anypb.Any{
-		TypeUrl: "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName()),
-		Value:   b,
-	}, nil
-}
-
-// messageToAny converts from proto message to proto Any
-func messageToAny(msg proto.Message) *anypb.Any {
-	out, err := messageToAnyWithError(msg)
-	if err != nil {
-		logrus.Error(fmt.Sprintf("Error marshaling Any %s: %v", prototext.Format(msg), err))
-		return nil
-	}
-	return out
-}
 
 func makeCluster(clusterName string, upstreamHost string) *cluster.Cluster {
 	logrus.Infof(">>>>>>>>>>>>>>>>>>> creating cluster with clusterName %s, upstreamHost %s", clusterName, upstreamHost)
@@ -74,11 +48,13 @@ func makeCluster(clusterName string, upstreamHost string) *cluster.Cluster {
 			},
 		},
 	}
-	uctx := &tls.UpstreamTlsContext{}
-	tctx, err := anypb.New(uctx)
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	/*
+		uctx := &tls.UpstreamTlsContext{}
+		tctx, err := anypb.New(uctx)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+	*/
 
 	return &cluster.Cluster{
 		Name:                 clusterName,
@@ -99,19 +75,19 @@ func makeCluster(clusterName string, upstreamHost string) *cluster.Cluster {
 				},
 			}},
 		},
-		TransportSocket: &core.TransportSocket{
-			Name: "envoy.transport_sockets.tls",
-			ConfigType: &core.TransportSocket_TypedConfig{
-				TypedConfig: tctx,
+		/*
+			TransportSocket: &core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: tctx,
+				},
 			},
-		},
+		*/
 	}
 }
 
-func makeHTTPListener(pub []byte, priv []byte, clusterName string, upstreamHost string, listenerPort uint32) *listener.Listener {
-	logrus.Infof(">>>>>>>>>>>>>>>>>>> creating listener with listenerName " + listenerName)
-
-	rte := &route.RouteConfiguration{
+func makeRoute(clusterName string, upstreamHost string) *route.RouteConfiguration {
+	return &route.RouteConfiguration{
 		Name: routeConfigName,
 		VirtualHosts: []*route.VirtualHost{{
 			Name:    virtualHostName,
@@ -136,18 +112,24 @@ func makeHTTPListener(pub []byte, priv []byte, clusterName string, upstreamHost 
 			}},
 		}},
 	}
+}
 
+func makeHTTPListener( /* pub []byte, priv []byte, */ listenerPort uint32) *listener.Listener {
+	logrus.Infof(">>>>>>>>>>>>>>>>>>> creating listener with listenerName " + listenerName)
+
+	routerConfig, _ := anypb.New(&router.Router{})
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: "ingress_http",
-		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: rte,
+		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
+				ConfigSource:    makeConfigSource(),
+				RouteConfigName: routeConfigName,
+			},
 		},
 		HttpFilters: []*hcm.HttpFilter{{
-			Name: wellknown.Router,
-			ConfigType: &hcm.HttpFilter_TypedConfig{
-				TypedConfig: messageToAny(&router.Router{}),
-			},
+			Name:       wellknown.Router,
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: routerConfig},
 		}},
 	}
 
@@ -155,24 +137,25 @@ func makeHTTPListener(pub []byte, priv []byte, clusterName string, upstreamHost 
 	if err != nil {
 		logrus.Fatal(err)
 	}
+	/*
+		sdsTls := &tls.DownstreamTlsContext{
+			CommonTlsContext: &tls.CommonTlsContext{
+				TlsCertificates: []*tls.TlsCertificate{{
+					CertificateChain: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{InlineBytes: []byte(pub)},
+					},
+					PrivateKey: &core.DataSource{
+						Specifier: &core.DataSource_InlineBytes{InlineBytes: []byte(priv)},
+					},
+				}},
+			},
+		}
 
-	sdsTls := &tls.DownstreamTlsContext{
-		CommonTlsContext: &tls.CommonTlsContext{
-			TlsCertificates: []*tls.TlsCertificate{{
-				CertificateChain: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{InlineBytes: []byte(pub)},
-				},
-				PrivateKey: &core.DataSource{
-					Specifier: &core.DataSource_InlineBytes{InlineBytes: []byte(priv)},
-				},
-			}},
-		},
-	}
-
-	scfg, err := anypb.New(sdsTls)
-	if err != nil {
-		logrus.Fatal(err)
-	}
+		scfg, err := anypb.New(sdsTls)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+	*/
 
 	return &listener.Listener{
 		Name: listenerName,
@@ -194,16 +177,37 @@ func makeHTTPListener(pub []byte, priv []byte, clusterName string, upstreamHost 
 					TypedConfig: pbst,
 				},
 			}},
-			TransportSocket: &core.TransportSocket{
-				Name: "envoy.transport_sockets.tls",
-				ConfigType: &core.TransportSocket_TypedConfig{
-					TypedConfig: scfg,
+			/*
+				TransportSocket: &core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &core.TransportSocket_TypedConfig{
+						TypedConfig: scfg,
+					},
 				},
-			},
+			*/
 		}},
 	}
 }
 
+func makeConfigSource() *core.ConfigSource {
+	source := &core.ConfigSource{}
+	source.ResourceApiVersion = resource.DefaultAPIVersion
+	source.ConfigSourceSpecifier = &core.ConfigSource_ApiConfigSource{
+		ApiConfigSource: &core.ApiConfigSource{
+			TransportApiVersion:       resource.DefaultAPIVersion,
+			ApiType:                   core.ApiConfigSource_GRPC,
+			SetNodeOnFirstMessageOnly: true,
+			GrpcServices: []*core.GrpcService{{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "xds_cluster"},
+				},
+			}},
+		},
+	}
+	return source
+}
+
+/*
 func makeSecret(pub []byte, priv []byte) *tls.Secret {
 	logrus.Infof(">>>>>>>>>>>>>>>>>>> creating secret with secretName " + secretName)
 	return &tls.Secret{
@@ -220,6 +224,7 @@ func makeSecret(pub []byte, priv []byte) *tls.Secret {
 		},
 	}
 }
+*/
 
 func GenerateSnapshot(ctx context.Context, config cache.SnapshotCache) {
 	num := len(config.GetStatusKeys())
@@ -235,14 +240,16 @@ func GenerateSnapshot(ctx context.Context, config cache.SnapshotCache) {
 
 			atomic.AddInt32(&version, 1)
 
-			pub, err := os.ReadFile("certs/envoy-proxy-server.crt")
-			if err != nil {
-				logrus.Fatal(err)
-			}
-			priv, err := os.ReadFile("certs/envoy-proxy-server.key")
-			if err != nil {
-				logrus.Fatal(err)
-			}
+			/*
+				pub, err := os.ReadFile("certs/envoy-proxy-server.crt")
+				if err != nil {
+					logrus.Fatal(err)
+				}
+				priv, err := os.ReadFile("certs/envoy-proxy-server.key")
+				if err != nil {
+					logrus.Fatal(err)
+				}
+			*/
 
 			jsonFile, err := os.ReadFile("input.json")
 			if err != nil {
@@ -254,8 +261,9 @@ func GenerateSnapshot(ctx context.Context, config cache.SnapshotCache) {
 				if strings.Contains(input.Data[i].ClusterName, service) {
 					resources := make(map[string][]types.Resource, 3)
 					resources[resource.ClusterType] = []types.Resource{makeCluster(input.Data[i].ClusterName, input.Data[i].UpstreamHost)}
-					resources[resource.ListenerType] = []types.Resource{makeHTTPListener(pub, priv, input.Data[i].ClusterName, input.Data[i].UpstreamHost, input.Data[i].ListenerPort)}
-					resources[resource.SecretType] = []types.Resource{makeSecret(pub, priv)}
+					resources[resource.RouteType] = []types.Resource{makeRoute(input.Data[i].ClusterName, input.Data[i].UpstreamHost)}
+					resources[resource.ListenerType] = []types.Resource{makeHTTPListener( /* pub, priv,*/ input.Data[i].ListenerPort)}
+					// resources[resource.SecretType] = []types.Resource{makeSecret(pub, priv)}
 					snap, _ := cache.NewSnapshot(fmt.Sprint(version), resources)
 					if err := snap.Consistent(); err != nil {
 						logrus.Errorf("Snapshot inconsistency: %+v\n%+v", snap, err)
