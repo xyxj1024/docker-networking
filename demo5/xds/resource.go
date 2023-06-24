@@ -43,7 +43,7 @@ func makeCluster(clusterName string, upstreamHost string) *cluster.Cluster {
 				Address:  upstreamHost,
 				Protocol: core.SocketAddress_TCP,
 				PortSpecifier: &core.SocketAddress_PortValue{
-					PortValue: uint32(443),
+					PortValue: uint32(80), // for HTTP
 				},
 			},
 		},
@@ -123,8 +123,12 @@ func makeHTTPListener( /* pub []byte, priv []byte, */ listenerPort uint32) *list
 		StatPrefix: "ingress_http",
 		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
-				ConfigSource:    makeConfigSource(),
 				RouteConfigName: routeConfigName,
+				ConfigSource: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_Ads{
+						Ads: &core.AggregatedConfigSource{},
+					},
+				},
 			},
 		},
 		HttpFilters: []*hcm.HttpFilter{{
@@ -189,6 +193,7 @@ func makeHTTPListener( /* pub []byte, priv []byte, */ listenerPort uint32) *list
 	}
 }
 
+/*
 func makeConfigSource() *core.ConfigSource {
 	source := &core.ConfigSource{}
 	source.ResourceApiVersion = resource.DefaultAPIVersion
@@ -206,6 +211,7 @@ func makeConfigSource() *core.ConfigSource {
 	}
 	return source
 }
+*/
 
 /*
 func makeSecret(pub []byte, priv []byte) *tls.Secret {

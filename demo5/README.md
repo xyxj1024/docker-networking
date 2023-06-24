@@ -6,12 +6,6 @@
     go mod init envoy-control && go mod tidy
     ```
 
-- (Required) Generate TLS certificates and keys:
-
-    ```bash
-    cd path/to/demo/certs && ./certs.sh
-    ```
-
 - (Optional) To run without containers, `cd` into the `xds` folder and:
     
     ```bash
@@ -47,7 +41,7 @@ curl localhost:10001
 
 ## Run with Docker Compose
 
-Make sure that the listener's address of the bootstrap configuration files for Envoy proxies is set to `xds`, the container name associated with the xDS server.
+Make sure that the listener's address of the bootstrap configuration files for Envoy proxies is set to `xds` (the corresponding container name), the container name associated with the xDS server.
 
 First, inside the `demo` folder, run `docker compose build`. Then, `docker compose up` all `envoy-x`s.
 
